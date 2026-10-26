@@ -61,6 +61,17 @@ type InvokeOptions = {
 const cancelledFailure = () =>
 	new TerminalFailure({ message: "Cancelled", code: 409 });
 
+/** Restate fails completing a durable promise twice; the first value stays. */
+const failIfAlreadyCompleted = (completed: boolean) =>
+	completed
+		? Effect.void
+		: Effect.die(
+				new TerminalFailure({
+					message: "promise was already completed",
+					code: 409,
+				}),
+			);
+
 const unknownId = (kind: string, id: string) =>
 	new IngressError({ cause: new Error(`Unknown ${kind} '${id}'`) });
 
@@ -207,16 +218,16 @@ export const make = Effect.gen(function* () {
 					),
 				),
 			promiseResolve: (name, value) =>
-				Effect.suspend(() =>
-					Deferred.succeed(promise(name), value).pipe(Effect.asVoid),
+				Effect.suspend(() => Deferred.succeed(promise(name), value)).pipe(
+					Effect.flatMap(failIfAlreadyCompleted),
 				),
 			promiseReject: (name, reason) =>
 				Effect.suspend(() =>
 					Deferred.fail(
 						promise(name),
 						new TerminalFailure({ message: reason, code: 500 }),
-					).pipe(Effect.asVoid),
-				),
+					),
+				).pipe(Effect.flatMap(failIfAlreadyCompleted)),
 		};
 
 		const base = Context.make(RestateContext, restateContext);
@@ -359,18 +370,28 @@ export const make = Effect.gen(function* () {
 				(): Effect.Effect<string, TerminalFailure | IngressError> => {
 					const run = entityOf(service, key).run;
 					return run === undefined
-						? Effect.fail(unknownId("workflow", `${service}/${key}`))
+						? Effect.fail(
+								new TerminalFailure({ message: "not found", code: 404 }),
+							)
 						: awaitInvocation(run);
 				},
 			),
 		workflowOutput: (service, key) =>
-			Effect.suspend(() => {
-				const run = entityOf(service, key).run;
-				if (run === undefined || run.fiber.pollUnsafe() === undefined) {
-					return Effect.succeed(Option.none<string>());
-				}
-				return awaitInvocation(run).pipe(Effect.map(Option.some));
-			}),
+			Effect.suspend(
+				(): Effect.Effect<
+					Option.Option<string>,
+					TerminalFailure | IngressError
+				> => {
+					const run = entityOf(service, key).run;
+					if (run === undefined) {
+						return Effect.fail(unknownId("workflow", `${service}/${key}`));
+					}
+					if (run.fiber.pollUnsafe() === undefined) {
+						return Effect.succeed(Option.none<string>());
+					}
+					return awaitInvocation(run).pipe(Effect.map(Option.some));
+				},
+			),
 		resolveAwakeable: (id, value) =>
 			Effect.suspend(() => {
 				const deferred = awakeables.get(id);
@@ -391,9 +412,19 @@ export const make = Effect.gen(function* () {
 		cancel: (invocationId) =>
 			Effect.suspend(() => {
 				const invocation = invocations.get(invocationId);
-				return invocation === undefined
-					? Effect.fail(unknownId("invocation", invocationId))
-					: cancelInvocation(invocation);
+				if (invocation === undefined) {
+					return Effect.fail(unknownId("invocation", invocationId));
+				}
+				// Restate's admin API rejects cancelling a finished invocation.
+				return invocation.fiber.pollUnsafe() === undefined
+					? cancelInvocation(invocation)
+					: Effect.fail(
+							new IngressError({
+								cause: new Error(
+									`Invocation '${invocationId}' already completed`,
+								),
+							}),
+						);
 			}),
 	};
 

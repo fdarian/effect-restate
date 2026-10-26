@@ -272,6 +272,101 @@ export function registerSharedRestateTests(it: Vitest.MethodsNonLive<Restate>) {
 			expect(yield* Ref.get(runs)).toBe(1);
 		}));
 
+	test("a durable promise completes once: the second completion fails and the first value stays", () =>
+		Effect.gen(function* () {
+			const promise = Restate.promise("answer", S.String);
+			const Oracle = Restate.workflow({
+				name: `Oracle${uid()}`,
+				handlers: {
+					run: Restate.handler({ output: S.String }, () => promise.await),
+					answer: Restate.shared({ input: S.String }, (value) =>
+						promise.resolve(value),
+					),
+					peek: Restate.shared(
+						{ output: S.Option(S.String) },
+						() => promise.peek,
+					),
+				},
+			});
+			yield* Restate.serve([Oracle]);
+			const oracle = Restate.ingress.workflowClient(Oracle, uid());
+
+			yield* oracle.submit();
+			expect(yield* oracle.peek()).toEqual(Option.none());
+			yield* oracle.answer("first");
+			const second = yield* oracle.answer("second").pipe(Effect.flip);
+			expect(second).toMatchObject({ _tag: "TerminalFailure", code: 409 });
+			expect(yield* oracle.attach).toBe("first");
+			expect(yield* oracle.peek()).toEqual(Option.some("first"));
+		}));
+
+	test("peeking a rejected durable promise ends the handler with the rejection", () =>
+		Effect.gen(function* () {
+			const promise = Restate.promise("answer", S.String);
+			const Oracle = Restate.workflow({
+				name: `Denied${uid()}`,
+				handlers: {
+					run: Restate.handler({ output: S.String }, () => promise.await),
+					deny: Restate.shared({}, () => promise.reject("denied")),
+					peek: Restate.shared(
+						{ output: S.Option(S.String) },
+						() => promise.peek,
+					),
+				},
+			});
+			yield* Restate.serve([Oracle]);
+			const oracle = Restate.ingress.workflowClient(Oracle, uid());
+
+			yield* oracle.submit();
+			yield* oracle.deny();
+			expect(yield* oracle.peek().pipe(Effect.flip)).toMatchObject({
+				message: "denied",
+			});
+			expect(yield* oracle.attach.pipe(Effect.flip)).toMatchObject({
+				message: "denied",
+			});
+		}));
+
+	test("a workflow that was never submitted has neither output nor result", () =>
+		Effect.gen(function* () {
+			const Idle = Restate.workflow({
+				name: `Idle${uid()}`,
+				handlers: {
+					run: Restate.handler({ output: S.String }, () => Effect.succeed("x")),
+				},
+			});
+			yield* Restate.serve([Idle]);
+			const idle = Restate.ingress.workflowClient(Idle, uid());
+
+			expect((yield* idle.output.pipe(Effect.flip))._tag).toBe("IngressError");
+			expect(yield* idle.attach.pipe(Effect.flip)).toMatchObject({
+				_tag: "TerminalFailure",
+				code: 404,
+			});
+		}));
+
+	test("cancelling a finished invocation is an ingress error", () =>
+		Effect.gen(function* () {
+			const Quick = Restate.service({
+				name: `Quick${uid()}`,
+				handlers: {
+					go: Restate.handler({ output: S.String }, () =>
+						Effect.succeed("done"),
+					),
+				},
+			});
+			yield* Restate.serve([Quick]);
+
+			const handle = yield* Restate.ingress
+				.sendClient(Quick)
+				.go({ idempotencyKey: uid() });
+			expect(yield* Restate.ingress.result(handle)).toBe("done");
+			const error = yield* Restate.ingress
+				.cancel(handle.invocationId)
+				.pipe(Effect.flip);
+			expect(error._tag).toBe("IngressError");
+		}));
+
 	test("an awakeable created in a handler is resolved through ingress", () =>
 		Effect.gen(function* () {
 			const ids = yield* Deferred.make<string>();

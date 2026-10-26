@@ -5,7 +5,6 @@ import {
 	Effect,
 	Exit,
 	Fiber,
-	Option,
 	Schema as S,
 	type Scope,
 } from "effect";
@@ -124,34 +123,6 @@ it.layer(Restate.layerInMemory())("Restate (in-memory)", (it) => {
 
 			const error = yield* Restate.serve([Twice]).pipe(Effect.flip);
 			expect(error).toBeInstanceOf(ServeError);
-		}),
-	);
-
-	it.effect("resolving a durable promise twice keeps the first value", () =>
-		Effect.gen(function* () {
-			const promise = Restate.promise("answer", S.String);
-			const Oracle = Restate.workflow({
-				name: "Oracle",
-				handlers: {
-					run: Restate.handler({ output: S.String }, () => promise.await),
-					answer: Restate.shared({ input: S.String }, (value) =>
-						promise.resolve(value),
-					),
-					peek: Restate.shared(
-						{ output: S.Option(S.String) },
-						() => promise.peek,
-					),
-				},
-			});
-			yield* Restate.serve([Oracle]);
-			const oracle = Restate.ingress.workflowClient(Oracle, "k");
-
-			yield* oracle.submit();
-			expect(yield* oracle.peek()).toEqual(Option.none());
-			yield* oracle.answer("first");
-			yield* oracle.answer("second");
-			expect(yield* oracle.attach).toBe("first");
-			expect(yield* oracle.peek()).toEqual(Option.some("first"));
 		}),
 	);
 
