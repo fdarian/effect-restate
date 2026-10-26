@@ -1,0 +1,62 @@
+{
+	"name": "effect-restate",
+	"version": "0.0.0",
+	"description": "Effect-native bindings for Restate, with an in-memory implementation for tests.",
+	"license": "Apache-2.0",
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/fdarian/effect-restate.git"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "tsdown",
+		"test": "vitest run",
+		"test:real": "RESTATE_TEST_REAL=1 vitest run tests/restate.real.test.ts",
+		"ci:version": "changeset version",
+		"ci:release": "pnpm run build && bun scripts/prepare-package-json.ts && changeset publish",
+		"check:type": "tsrs --noEmit",
+		"check:lint": "biome check"
+	},
+	"peerDependencies": {
+		"@restatedev/restate-sdk": "^1.17.0",
+		"@restatedev/restate-sdk-clients": "^1.17.0",
+		"effect": "^4.0.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.15",
+		"@changesets/cli": "^2.31.0",
+		"@effect/vitest": "4.0.0",
+		"@restatedev/restate-sdk": "^1.17.4",
+		"@restatedev/restate-sdk-clients": "^1.17.4",
+		"@types/bun": "latest",
+		"@types/node": "^26.2.0",
+		"effect": "4.0.0",
+		"testcontainers": "^12.1.0",
+		"tsdown": "^0.22.14",
+		"tsrs": "0.18.0-ts7.1.0-dev.20260929",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.3"
+	},
+	"packageManager": "pnpm@12.9.0",
+	"devEngines": {
+		"runtime": {
+			"name": "bun",
+			"version": "latest",
+			"onFail": "download"
+		}
+	}
+}
