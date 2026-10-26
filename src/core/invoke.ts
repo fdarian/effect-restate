@@ -72,9 +72,9 @@ export const executeHandler = (
 		Effect.flatMap((output) =>
 			encodeValue(handler.output, output).pipe(Effect.orDie),
 		),
-		// Ops that cannot fail in their type (e.g. `Restate.promise(..).peek` on
-		// a rejected promise) die with the terminal failure; it still ends the
-		// invocation terminally rather than being retried like other defects.
+		// A terminal failure raised as a defect (e.g. `Restate.run` out of
+		// retries) still ends the invocation terminally rather than being
+		// retried like other defects.
 		Effect.catchDefect((defect) =>
 			defect instanceof TerminalFailure
 				? Effect.fail(defect)
