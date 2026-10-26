@@ -11,6 +11,7 @@ import {
 	type ServeOptions,
 } from "./core/restate.js";
 import * as inMemory from "./impl/in-memory.js";
+import * as live from "./impl/live.js";
 
 export type { CallOptions, SendOptions } from "./core/client.js";
 export {
@@ -47,6 +48,7 @@ const serve = <const D extends ReadonlyArray<AnyDefinition>>(
 	Effect.flatMap(RestateTag, (restate) => restate.serve(definitions, options));
 
 const api = {
+	layer: () => live.layer,
 	layerInMemory: () => inMemory.layer,
 	service: definition.service,
 	object: definition.object,

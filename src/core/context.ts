@@ -38,7 +38,7 @@ export type RestateContextShape = {
 	 */
 	readonly run: (
 		action: Effect.Effect<string, TerminalFailure>,
-		options: { readonly name?: string; readonly retry?: RetryOptions },
+		options: { readonly name: string; readonly retry?: RetryOptions },
 	) => Effect.Effect<string, TerminalFailure>;
 	readonly sleep: (
 		duration: Duration.Duration,
