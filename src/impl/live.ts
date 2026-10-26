@@ -263,13 +263,9 @@ const workflowContextFor = (
 				Effect.map(Option.fromUndefinedOr),
 			),
 		promiseResolve: (name, value) =>
-			wait(() => ctx.promise<string>(name, textSerde).resolve(value)).pipe(
-				Effect.orDie,
-			),
+			wait(() => ctx.promise<string>(name, textSerde).resolve(value)),
 		promiseReject: (name, reason) =>
-			wait(() => ctx.promise<string>(name, textSerde).reject(reason)).pipe(
-				Effect.orDie,
-			),
+			wait(() => ctx.promise<string>(name, textSerde).reject(reason)),
 	};
 };
 

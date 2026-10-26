@@ -195,8 +195,9 @@ export const rejectAwakeable = (id: string, reason: string) =>
 	Effect.flatMap(RestateContext, (ctx) => ctx.rejectAwakeable(id, reason));
 
 /**
- * Durable promise of the current workflow. `peek` dies if the promise was
- * rejected.
+ * Durable promise of the current workflow. `await` and `peek` fail with a
+ * `TerminalFailure` if the promise was rejected; `resolve` and `reject` fail
+ * with one (code 409) if it was already completed.
  */
 export const promise = <S extends AnySchema>(name: string, schema: S) => {
 	const decode = (text: string) =>
@@ -209,7 +210,6 @@ export const promise = <S extends AnySchema>(name: string, schema: S) => {
 			Effect.flatMap(decode),
 		),
 		peek: Effect.flatMap(WorkflowContext, (ctx) => ctx.promisePeek(name)).pipe(
-			Effect.orDie,
 			Effect.flatMap((stored) =>
 				Option.isNone(stored)
 					? Effect.succeed(Option.none<S["Type"]>())

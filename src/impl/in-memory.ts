@@ -65,7 +65,7 @@ const cancelledFailure = () =>
 const failIfAlreadyCompleted = (completed: boolean) =>
 	completed
 		? Effect.void
-		: Effect.die(
+		: Effect.fail(
 				new TerminalFailure({
 					message: "promise was already completed",
 					code: 409,

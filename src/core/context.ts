@@ -83,8 +83,14 @@ export type WorkflowContextShape = {
 	readonly promisePeek: (
 		name: string,
 	) => Effect.Effect<Option.Option<string>, TerminalFailure>;
-	readonly promiseResolve: (name: string, value: string) => Effect.Effect<void>;
-	readonly promiseReject: (name: string, reason: string) => Effect.Effect<void>;
+	readonly promiseResolve: (
+		name: string,
+		value: string,
+	) => Effect.Effect<void, TerminalFailure>;
+	readonly promiseReject: (
+		name: string,
+		reason: string,
+	) => Effect.Effect<void, TerminalFailure>;
 };
 
 export class RestateContext extends Context.Service<

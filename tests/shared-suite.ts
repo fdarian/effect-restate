@@ -272,7 +272,7 @@ export function registerSharedRestateTests(it: Vitest.MethodsNonLive<Restate>) {
 			expect(yield* Ref.get(runs)).toBe(1);
 		}));
 
-	test("a durable promise completes once: the second completion fails and the first value stays", () =>
+	test("a durable promise completes once: the second completion fails with a TerminalFailure the handler can recover from", () =>
 		Effect.gen(function* () {
 			const promise = Restate.promise("answer", S.String);
 			const Oracle = Restate.workflow({
@@ -281,6 +281,16 @@ export function registerSharedRestateTests(it: Vitest.MethodsNonLive<Restate>) {
 					run: Restate.handler({ output: S.String }, () => promise.await),
 					answer: Restate.shared({ input: S.String }, (value) =>
 						promise.resolve(value),
+					),
+					answerRecovering: Restate.shared(
+						{ input: S.String, output: S.Number },
+						(value) =>
+							promise.resolve(value).pipe(
+								Effect.as(0),
+								Effect.catchTag("TerminalFailure", (failure) =>
+									Effect.succeed(failure.code),
+								),
+							),
 					),
 					peek: Restate.shared(
 						{ output: S.Option(S.String) },
@@ -296,11 +306,12 @@ export function registerSharedRestateTests(it: Vitest.MethodsNonLive<Restate>) {
 			yield* oracle.answer("first");
 			const second = yield* oracle.answer("second").pipe(Effect.flip);
 			expect(second).toMatchObject({ _tag: "TerminalFailure", code: 409 });
+			expect(yield* oracle.answerRecovering("third")).toBe(409);
 			expect(yield* oracle.attach).toBe("first");
 			expect(yield* oracle.peek()).toEqual(Option.some("first"));
 		}));
 
-	test("peeking a rejected durable promise ends the handler with the rejection", () =>
+	test("peeking a rejected durable promise fails with the rejection, which the handler can recover from", () =>
 		Effect.gen(function* () {
 			const promise = Restate.promise("answer", S.String);
 			const Oracle = Restate.workflow({
@@ -312,6 +323,14 @@ export function registerSharedRestateTests(it: Vitest.MethodsNonLive<Restate>) {
 						{ output: S.Option(S.String) },
 						() => promise.peek,
 					),
+					peekRecovered: Restate.shared({ output: S.String }, () =>
+						promise.peek.pipe(
+							Effect.as("pending"),
+							Effect.catchTag("TerminalFailure", (failure) =>
+								Effect.succeed(`recovered:${failure.message}`),
+							),
+						),
+					),
 				},
 			});
 			yield* Restate.serve([Oracle]);
@@ -320,8 +339,10 @@ export function registerSharedRestateTests(it: Vitest.MethodsNonLive<Restate>) {
 			yield* oracle.submit();
 			yield* oracle.deny();
 			expect(yield* oracle.peek().pipe(Effect.flip)).toMatchObject({
+				_tag: "TerminalFailure",
 				message: "denied",
 			});
+			expect(yield* oracle.peekRecovered()).toBe("recovered:denied");
 			expect(yield* oracle.attach.pipe(Effect.flip)).toMatchObject({
 				message: "denied",
 			});
