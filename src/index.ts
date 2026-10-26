@@ -46,13 +46,7 @@ const serve = <const D extends ReadonlyArray<AnyDefinition>>(
 ) =>
 	Effect.flatMap(RestateTag, (restate) => restate.serve(definitions, options));
 
-/**
- * The module's whole API. It is not the service tag itself because the tag's
- * own `key` property is its runtime identity and `Restate.key` is the object
- * key operation; the tag is `Restate.Tag`.
- */
-export const Restate = {
-	Tag: RestateTag,
+const api = {
 	layerInMemory: () => inMemory.layer,
 	service: definition.service,
 	object: definition.object,
@@ -65,7 +59,7 @@ export const Restate = {
 	state: ops.state,
 	stateKeys: ops.stateKeys,
 	clearAllState: ops.clearAllState,
-	key: ops.key,
+	objectKey: ops.objectKey,
 	awakeable: ops.awakeable,
 	resolveAwakeable: ops.resolveAwakeable,
 	rejectAwakeable: ops.rejectAwakeable,
@@ -88,3 +82,6 @@ export const Restate = {
 		cancel: ingress.cancel,
 	},
 };
+
+/** The service tag, carrying the module's whole API. */
+export const Restate = Object.assign(RestateTag, api);

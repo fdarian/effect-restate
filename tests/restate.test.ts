@@ -270,7 +270,7 @@ it.layer(Restate.layerInMemory())("Restate (in-memory)", (it) => {
 				});
 				yield* Restate.serve([Typed]);
 
-				const restate = yield* Restate.Tag;
+				const restate = yield* Restate;
 				const error = yield* restate.ingress
 					.call({ service: "Typed", handler: "echo" }, '"not a number"', {})
 					.pipe(Effect.flip);

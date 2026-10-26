@@ -163,7 +163,7 @@ export function registerSharedRestateTests(it: Vitest.MethodsNonLive<Restate>) {
 							Option.getOrElse(() => 0),
 						),
 					),
-					whoAmI: Restate.shared({ output: S.String }, () => Restate.key),
+					whoAmI: Restate.shared({ output: S.String }, () => Restate.objectKey),
 					keys: Restate.shared(
 						{ output: S.Array(S.String) },
 						() => Restate.stateKeys,

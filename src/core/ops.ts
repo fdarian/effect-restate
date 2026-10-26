@@ -132,7 +132,9 @@ export const invocationId = Effect.flatMap(RestateContext, (ctx) =>
 export const cancel = (id: string) =>
 	Effect.flatMap(RestateContext, (ctx) => ctx.cancel(id));
 
-export const key = Effect.flatMap(SharedObjectContext, (ctx) => ctx.key());
+export const objectKey = Effect.flatMap(SharedObjectContext, (ctx) =>
+	ctx.key(),
+);
 export const stateKeys = Effect.flatMap(SharedObjectContext, (ctx) =>
 	ctx.stateKeys(),
 );
