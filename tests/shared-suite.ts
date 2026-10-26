@@ -366,6 +366,47 @@ export function registerSharedRestateTests(it: Vitest.MethodsNonLive<Restate>) {
 			});
 		}));
 
+	test("calling an unknown service or handler through ingress is an ingress error", () =>
+		Effect.gen(function* () {
+			const Known = Restate.service({
+				name: `Known${uid()}`,
+				handlers: {
+					go: Restate.handler({ output: S.String }, () => Effect.succeed("x")),
+				},
+			});
+			const Missing = Restate.service({
+				name: `Missing${uid()}`,
+				handlers: {
+					go: Restate.handler({ output: S.String }, () => Effect.succeed("x")),
+				},
+			});
+			const Wrong = Restate.service({
+				name: Known.name,
+				handlers: {
+					other: Restate.handler({ output: S.String }, () =>
+						Effect.succeed("x"),
+					),
+				},
+			});
+			yield* Restate.serve([Known]);
+
+			const unknownService = yield* Restate.ingress
+				.client(Missing)
+				.go()
+				.pipe(Effect.flip);
+			expect(unknownService._tag).toBe("IngressError");
+			const unknownHandler = yield* Restate.ingress
+				.client(Wrong)
+				.other()
+				.pipe(Effect.flip);
+			expect(unknownHandler._tag).toBe("IngressError");
+			const unknownSend = yield* Restate.ingress
+				.sendClient(Missing)
+				.go()
+				.pipe(Effect.flip);
+			expect(unknownSend._tag).toBe("IngressError");
+		}));
+
 	test("cancelling a finished invocation is an ingress error", () =>
 		Effect.gen(function* () {
 			const Quick = Restate.service({

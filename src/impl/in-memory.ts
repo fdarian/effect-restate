@@ -158,6 +158,7 @@ export const make = Effect.gen(function* () {
 				}),
 			call: (target, parameter, options) =>
 				invoke(target, parameter, options).pipe(
+					Effect.orDie,
 					Effect.flatMap((child) =>
 						awaitInvocation(child.invocation).pipe(
 							Effect.onInterrupt(() => cancelInvocation(child.invocation)),
@@ -166,6 +167,7 @@ export const make = Effect.gen(function* () {
 				),
 			send: (target, parameter, options) =>
 				invoke(target, parameter, options).pipe(
+					Effect.orDie,
 					Effect.map((child) => child.invocation.id),
 				),
 			cancel: (id) =>
@@ -257,18 +259,20 @@ export const make = Effect.gen(function* () {
 		Effect.gen(function* () {
 			const entry = served.get(target.service);
 			if (entry === undefined) {
-				return yield* Effect.die(
-					new Error(
+				return yield* new IngressError({
+					cause: new Error(
 						`Unknown service '${target.service}': make sure it is served`,
 					),
-				);
+				});
 			}
 			const definition = entry.definition;
 			const handler = definition.handlers[target.handler];
 			if (handler === undefined) {
-				return yield* Effect.die(
-					new Error(`Unknown handler '${target.service}/${target.handler}'`),
-				);
+				return yield* new IngressError({
+					cause: new Error(
+						`Unknown handler '${target.service}/${target.handler}'`,
+					),
+				});
 			}
 			if (definition.kind === "service" && target.key !== undefined) {
 				return yield* Effect.die(

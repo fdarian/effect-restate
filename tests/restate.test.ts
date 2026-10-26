@@ -99,16 +99,21 @@ it.layer(Restate.layerInMemory())("Restate (in-memory)", (it) => {
 		}),
 	);
 
-	it.effect("calling a service that is not served is a defect", () =>
+	it.effect("a durable call to a service that is not served is a defect", () =>
 		Effect.gen(function* () {
 			const Missing = Restate.service({
 				name: "Missing",
 				handlers: { nothing: Restate.handler({}, () => Effect.void) },
 			});
+			const Caller = Restate.service({
+				name: "Caller",
+				handlers: {
+					go: Restate.handler({}, () => Restate.client(Missing).nothing()),
+				},
+			});
+			yield* Restate.serve([Caller]);
 
-			const exit = yield* Effect.exit(
-				Restate.ingress.client(Missing).nothing(),
-			);
+			const exit = yield* Effect.exit(Restate.ingress.client(Caller).go());
 			expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true);
 		}),
 	);
